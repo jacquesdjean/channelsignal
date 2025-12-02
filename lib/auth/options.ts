@@ -1,7 +1,7 @@
 import { NextAuthOptions } from 'next-auth';
 import EmailProvider from 'next-auth/providers/email';
 import { PrismaAdapter } from '@auth/prisma-adapter';
-import { Adapter } from 'next-auth/adapters';
+import { Adapter, AdapterUser } from 'next-auth/adapters';
 import { prisma } from '@/lib/db';
 import { createId } from '@paralleldrive/cuid2';
 
@@ -18,15 +18,24 @@ const customPrismaAdapter = (): Adapter => {
 
   return {
     ...adapter,
-    createUser: async (data) => {
+    createUser: async (data: Omit<AdapterUser, 'id'>): Promise<AdapterUser> => {
       const bccAddress = generateBccAddress();
       const user = await prisma.user.create({
         data: {
-          ...data,
+          email: data.email,
+          emailVerified: data.emailVerified,
+          name: data.name,
+          image: data.image,
           bccAddress,
         },
       });
-      return user;
+      return {
+        id: user.id,
+        email: user.email,
+        emailVerified: user.emailVerified,
+        name: user.name,
+        image: user.image,
+      };
     },
   };
 };
