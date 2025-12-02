@@ -1,0 +1,210 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  name       String?
+  bccAddress String   @unique // e.g., u_abc123@in.channelsignal.app
+  createdAt  DateTime @default(now())
+
+  emails    EmailMessage[]
+  artifacts Artifact[]
+  orgs      Org[]
+  contacts  Contact[]
+  deals     Deal[]
+  meetings  Meeting[]
+  reports   Report[]
+  accounts  Account[]
+  sessions  Session[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Org {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  domain    String?
+  type      OrgType?
+  createdAt DateTime @default(now())
+
+  contacts Contact[]
+  deals    Deal[]
+  meetings Meeting[]
+
+  @@unique([userId, domain])
+}
+
+enum OrgType {
+  VENDOR
+  DISTRIBUTOR
+  RESELLER
+  END_CUSTOMER
+  OTHER
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orgId     String?
+  org       Org?     @relation(fields: [orgId], references: [id])
+  email     String
+  name      String?
+  title     String?
+  createdAt DateTime @default(now())
+
+  @@unique([userId, email])
+}
+
+model EmailMessage {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messageId   String   // provider's message ID
+  threadId    String?  // for grouping
+  fromAddress String
+  toAddresses String[] // store as array
+  ccAddresses String[]
+  subject     String
+  textBody    String?
+  htmlBody    String?
+  sentAt      DateTime
+  receivedAt  DateTime @default(now())
+
+  dealId    String?
+  deal      Deal?    @relation(fields: [dealId], references: [id])
+  meetingId String?
+  meeting   Meeting? @relation(fields: [meetingId], references: [id])
+
+  @@unique([userId, messageId])
+}
+
+model Deal {
+  id            String     @id @default(cuid())
+  userId        String
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orgId         String?
+  org           Org?       @relation(fields: [orgId], references: [id])
+  title         String
+  amount        Float?
+  currency      String     @default("USD")
+  stage         DealStage  @default(PROSPECT)
+  status        DealStatus @default(OPEN)
+  expectedClose DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  emails EmailMessage[]
+}
+
+enum DealStage {
+  PROSPECT
+  QUALIFIED
+  PROPOSAL
+  NEGOTIATION
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+enum DealStatus {
+  OPEN
+  WON
+  LOST
+}
+
+model Meeting {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orgId       String?
+  org         Org?         @relation(fields: [orgId], references: [id])
+  title       String
+  meetingType MeetingType?
+  scheduledAt DateTime?
+  createdAt   DateTime     @default(now())
+
+  emails  EmailMessage[]
+  reports Report[]
+}
+
+enum MeetingType {
+  QBR
+  ANNUAL_REVIEW
+  WEEKLY_CHECKIN
+  DEAL_REVIEW
+  OTHER
+}
+
+model Artifact {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storageKey String
+  filename   String
+  mimeType   String
+  notes      String?
+  createdAt  DateTime @default(now())
+}
+
+model Report {
+  id          String     @id @default(cuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        ReportType
+  periodStart DateTime?
+  periodEnd   DateTime?
+  meetingId   String?
+  meeting     Meeting?   @relation(fields: [meetingId], references: [id])
+  content     Json       // structured report data
+  htmlContent String?    // rendered HTML
+  generatedAt DateTime   @default(now())
+}
+
+enum ReportType {
+  WEEKLY
+  MEETING_BRIEF
+  QUARTERLY
+  ANNUAL
+}
