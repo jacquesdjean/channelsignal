@@ -7,11 +7,6 @@ declare module 'next-auth' {
       email: string;
       name?: string | null;
       image?: string | null;
-      bccAddress: string;
     };
-  }
-
-  interface User {
-    bccAddress?: string;
   }
 }

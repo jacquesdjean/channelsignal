@@ -1,109 +1,108 @@
 # ChannelSignal
 
-Email-native sales intelligence for multi-org channel reps. Ingests BCC'd emails to auto-track deals, contacts, and organizations — then generates actionable reports.
-
-## Quick Start
-
-```bash
-# Install dependencies
-pnpm install
-
-# Start database
-docker compose up -d
-
-# Set up environment
-cp .env.example .env
-# Edit .env with your configuration
-
-# Run migrations
-pnpm db:migrate
-
-# Start dev server
-pnpm dev
-```
-
-## Features
-
-- **BCC Email Tracking**: Unique BCC address per user for automatic email ingestion
-- **Contact & Org Extraction**: Automatically extracts organizations and contacts from emails
-- **File Uploads**: Upload supporting documents, presentations, and notes
-- **Weekly Reports**: Generated summaries of email activity, new contacts, and deals
-- **Meeting Briefs**: Pre-meeting intelligence for QBRs, reviews, and check-ins
+Email-first channel sales intelligence. BCCs + screenshots → deal tracking across orgs without CRM write access.
 
 ## Stack
 
-- **Framework**: Next.js 14 (App Router)
-- **Language**: TypeScript (strict mode)
-- **Database**: PostgreSQL via Prisma
-- **Auth**: NextAuth.js with email magic links
-- **Styling**: Tailwind CSS
+- Next.js 14 (App Router)
+- Prisma + Postgres
+- Tailwind CSS
+- NextAuth (Email provider)
+
+## Quickstart
+
+```bash
+pnpm install
+docker compose up -d
+cp .env.example .env
+pnpm prisma migrate dev
+pnpm dev
+```
+
+Open http://localhost:3000
+
+## Dev Notes
+
+- **Sign-in:** Magic links logged to console in dev. Check terminal output.
+- **DB GUI:** `pnpm prisma studio` → http://localhost:5555
+- **Health check:** `GET /api/health/db`
+- **Test inbound email:** `POST /api/inbound/email` (see API docs below)
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /api/health/db | Database connectivity check |
+| POST | /api/inbound/email | Simulate BCC'd email receipt |
+| POST | /api/uploads | Upload file to channel |
+| POST | /api/test-email | Trigger dev email log |
+| GET | /api/channels | List all channels |
+| POST | /api/channels | Create a new channel |
+
+## Inbound Email API
+
+```bash
+curl -X POST http://localhost:3000/api/inbound/email \
+  -H "Content-Type: application/json" \
+  -d '{
+    "bccSlug": "acme-q4-renewal",
+    "from": "rep@example.com",
+    "to": ["buyer@acme.com"],
+    "cc": [],
+    "subject": "Q4 renewal discussion",
+    "bodyStub": "Hi team, following up on...",
+    "timestamp": "2025-01-15T14:30:00Z",
+    "externalId": "message-id-header-value"
+  }'
+```
+
+## File Upload API
+
+```bash
+curl -X POST http://localhost:3000/api/uploads \
+  -F "file=@/path/to/file.pdf" \
+  -F "channelId=your-channel-id"
+```
 
 ## Project Structure
 
 ```
-/app                  # Next.js App Router pages
-/app/api              # API routes (webhooks, REST endpoints)
-/lib
-  /db                 # Prisma client
-  /auth               # NextAuth configuration
-  /ingestion          # Email parsing and processing
-  /reports            # Report generation
-  /services           # Storage and other services
+/app
+  /inbox           # Email events list
+  /channels        # Channel management
+  /uploads         # File uploads
+  /settings        # System status & BCC config
+  /api
+    /health/db     # Health check
+    /inbound/email # Inbound email webhook
+    /uploads       # File upload endpoint
+    /channels      # Channel CRUD
+    /test-email    # Dev email testing
+/components
+  Sidebar.tsx      # Main navigation
+  AppShell.tsx     # Layout wrapper
 /prisma
-  schema.prisma       # Database schema
-/components           # React components
+  schema.prisma    # Database schema
 ```
+
+## Data Models
+
+- **User** - Authenticated users
+- **Organization** - Companies/teams
+- **Membership** - User ↔ Organization link with role
+- **Channel** - Deal tracking channels with unique BCC slug
+- **EmailEvent** - Received email records
+- **Upload** - File attachments
 
 ## Environment Variables
 
-See `.env.example` for required configuration:
-
-- `DATABASE_URL` - PostgreSQL connection string
-- `NEXTAUTH_URL` - Application URL
-- `NEXTAUTH_SECRET` - Session encryption key
-- `EMAIL_SERVER_*` - SMTP configuration for magic links
-- `INBOUND_EMAIL_DOMAIN` - Domain for BCC addresses
-
-## API Endpoints
-
-### Inbound Email Webhook
-```
-POST /api/inbound-email
-```
-Receives emails from inbound email providers (Resend, Postmark, etc.)
-
-### Reports
-```
-GET  /api/reports           # List reports
-GET  /api/reports/:id       # Get specific report
-POST /api/reports/weekly    # Generate weekly report
-POST /api/reports/meeting-brief  # Generate meeting brief
-```
-
-### Artifacts
-```
-GET  /api/artifacts         # List uploaded files
-POST /api/artifacts         # Upload a file
-```
-
-### Meetings
-```
-GET  /api/meetings          # List detected meetings
-```
-
-## Development
-
-```bash
-# Run dev server
-pnpm dev
-
-# Database management
-pnpm db:migrate   # Run migrations
-pnpm db:push      # Push schema changes
-pnpm db:studio    # Open Prisma Studio
-
-# Linting
-pnpm lint
+```env
+DATABASE_URL="postgresql://channelsignal:channelsignal@localhost:5432/channelsignal?schema=public"
+NEXTAUTH_SECRET="generate-with-openssl-rand-base64-32"
+NEXTAUTH_URL="http://localhost:3000"
+RESEND_API_KEY=""  # Optional in dev - magic links log to console
+EMAIL_FROM="onboarding@resend.dev"
+STORAGE_PATH="./uploads"
 ```
 
 ## License
