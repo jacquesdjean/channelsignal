@@ -25,13 +25,18 @@ const PERSONAL_DOMAINS = new Set([
  * Parses an email address string like "John Doe <john@example.com>" or "john@example.com"
  */
 export function parseEmailAddress(address: string): { email: string; name: string | null } {
-  const match = address.match(/^(?:"?([^"<]+)"?\s*)?<?([^>]+@[^>]+)>?$/);
-  if (match) {
-    return {
-      name: match[1]?.trim() || null,
-      email: match[2].toLowerCase().trim(),
-    };
+  // Check if it's in "Name <email>" format
+  if (address.includes('<') && address.includes('>')) {
+    const match = address.match(/^"?([^"<]*)"?\s*<([^>]+)>$/);
+    if (match) {
+      return {
+        name: match[1]?.trim() || null,
+        email: match[2].toLowerCase().trim(),
+      };
+    }
   }
+
+  // Plain email address
   return {
     name: null,
     email: address.toLowerCase().trim(),
