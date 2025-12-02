@@ -8,25 +8,87 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  emailVerified DateTime?
+  id            String       @id @default(cuid())
+  email         String       @unique
   name          String?
+  emailVerified DateTime?
   image         String?
-  bccAddress    String    @unique // e.g., u_abc123@in.channelsignal.app
-  createdAt     DateTime  @default(now())
-
-  emails    EmailMessage[]
-  artifacts Artifact[]
-  orgs      Org[]
-  contacts  Contact[]
-  deals     Deal[]
-  meetings  Meeting[]
-  reports   Report[]
-  accounts  Account[]
-  sessions  Session[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  memberships   Membership[]
+  uploads       Upload[]
+  accounts      Account[]
+  sessions      Session[]
 }
 
+model Organization {
+  id          String       @id @default(cuid())
+  name        String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  memberships Membership[]
+  channels    Channel[]
+}
+
+model Membership {
+  id             String       @id @default(cuid())
+  userId         String
+  organizationId String
+  role           String       @default("member") // "owner" | "admin" | "member"
+  createdAt      DateTime     @default(now())
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+}
+
+model Channel {
+  id             String       @id @default(cuid())
+  name           String
+  bccSlug        String       @unique // e.g., "acme-q4-renewal"
+  description    String?
+  status         String       @default("active") // "active" | "closed" | "paused"
+  organizationId String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  emailEvents    EmailEvent[]
+  uploads        Upload[]
+}
+
+model EmailEvent {
+  id         String   @id @default(cuid())
+  channelId  String
+  fromAddr   String
+  toAddrs    String[] // Postgres array
+  ccAddrs    String[]
+  subject    String
+  bodyStub   String?  // First 500 chars or summary
+  rawHeaders Json?
+  externalId String?  // Message-ID header for dedup
+  timestamp  DateTime
+  createdAt  DateTime @default(now())
+  channel    Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@index([channelId, timestamp])
+}
+
+model Upload {
+  id           String   @id @default(cuid())
+  channelId    String
+  uploadedById String
+  filename     String
+  mimeType     String
+  sizeBytes    Int
+  storageKey   String   // Local path in dev, S3 key in prod
+  createdAt    DateTime @default(now())
+  channel      Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+
+  @@index([channelId])
+}
+
+// NextAuth required models
 model Account {
   id                String  @id @default(cuid())
   userId            String
@@ -60,153 +122,4 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
-}
-
-model Org {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name      String
-  domain    String?
-  type      OrgType?
-  createdAt DateTime @default(now())
-
-  contacts Contact[]
-  deals    Deal[]
-  meetings Meeting[]
-
-  @@unique([userId, domain])
-}
-
-enum OrgType {
-  VENDOR
-  DISTRIBUTOR
-  RESELLER
-  END_CUSTOMER
-  OTHER
-}
-
-model Contact {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orgId     String?
-  org       Org?     @relation(fields: [orgId], references: [id])
-  email     String
-  name      String?
-  title     String?
-  createdAt DateTime @default(now())
-
-  @@unique([userId, email])
-}
-
-model EmailMessage {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messageId   String   // provider's message ID
-  threadId    String?  // for grouping
-  fromAddress String
-  toAddresses String[] // store as array
-  ccAddresses String[]
-  subject     String
-  textBody    String?
-  htmlBody    String?
-  sentAt      DateTime
-  receivedAt  DateTime @default(now())
-
-  dealId    String?
-  deal      Deal?    @relation(fields: [dealId], references: [id])
-  meetingId String?
-  meeting   Meeting? @relation(fields: [meetingId], references: [id])
-
-  @@unique([userId, messageId])
-}
-
-model Deal {
-  id            String     @id @default(cuid())
-  userId        String
-  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orgId         String?
-  org           Org?       @relation(fields: [orgId], references: [id])
-  title         String
-  amount        Float?
-  currency      String     @default("USD")
-  stage         DealStage  @default(PROSPECT)
-  status        DealStatus @default(OPEN)
-  expectedClose DateTime?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-
-  emails EmailMessage[]
-}
-
-enum DealStage {
-  PROSPECT
-  QUALIFIED
-  PROPOSAL
-  NEGOTIATION
-  CLOSED_WON
-  CLOSED_LOST
-}
-
-enum DealStatus {
-  OPEN
-  WON
-  LOST
-}
-
-model Meeting {
-  id          String       @id @default(cuid())
-  userId      String
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orgId       String?
-  org         Org?         @relation(fields: [orgId], references: [id])
-  title       String
-  meetingType MeetingType?
-  scheduledAt DateTime?
-  createdAt   DateTime     @default(now())
-
-  emails  EmailMessage[]
-  reports Report[]
-}
-
-enum MeetingType {
-  QBR
-  ANNUAL_REVIEW
-  WEEKLY_CHECKIN
-  DEAL_REVIEW
-  OTHER
-}
-
-model Artifact {
-  id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  storageKey String
-  filename   String
-  mimeType   String
-  notes      String?
-  createdAt  DateTime @default(now())
-}
-
-model Report {
-  id          String     @id @default(cuid())
-  userId      String
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type        ReportType
-  periodStart DateTime?
-  periodEnd   DateTime?
-  meetingId   String?
-  meeting     Meeting?   @relation(fields: [meetingId], references: [id])
-  content     Json       // structured report data
-  htmlContent String?    // rendered HTML
-  generatedAt DateTime   @default(now())
-}
-
-enum ReportType {
-  WEEKLY
-  MEETING_BRIEF
-  QUARTERLY
-  ANNUAL
 }

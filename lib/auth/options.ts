@@ -1,56 +1,26 @@
 import { NextAuthOptions } from 'next-auth';
 import EmailProvider from 'next-auth/providers/email';
 import { PrismaAdapter } from '@auth/prisma-adapter';
-import { Adapter, AdapterUser } from 'next-auth/adapters';
+import { Adapter } from 'next-auth/adapters';
 import { Resend } from 'resend';
 import { prisma } from '@/lib/db';
-import { createId } from '@paralleldrive/cuid2';
-
-const INBOUND_EMAIL_DOMAIN = process.env.INBOUND_EMAIL_DOMAIN || 'in.channelsignal.app';
 
 // Initialize Resend client
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
-function generateBccAddress(): string {
-  const uniqueId = createId();
-  return `u_${uniqueId}@${INBOUND_EMAIL_DOMAIN}`;
-}
-
-// Custom adapter that sets bccAddress on user creation
-const customPrismaAdapter = (): Adapter => {
-  const adapter = PrismaAdapter(prisma) as Adapter;
-
-  return {
-    ...adapter,
-    createUser: async (data: Omit<AdapterUser, 'id'>): Promise<AdapterUser> => {
-      const bccAddress = generateBccAddress();
-      const user = await prisma.user.create({
-        data: {
-          email: data.email,
-          emailVerified: data.emailVerified,
-          name: data.name,
-          image: data.image,
-          bccAddress,
-        },
-      });
-      return {
-        id: user.id,
-        email: user.email,
-        emailVerified: user.emailVerified,
-        name: user.name,
-        image: user.image,
-      };
-    },
-  };
-};
-
 export const authOptions: NextAuthOptions = {
-  adapter: customPrismaAdapter(),
+  adapter: PrismaAdapter(prisma) as Adapter,
   providers: [
     EmailProvider({
       server: {}, // Not used with custom sendVerificationRequest
       from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
       sendVerificationRequest: async ({ identifier: email, url }) => {
+        // In development without Resend API key, log magic link to console
+        if (process.env.NODE_ENV === 'development' && !process.env.RESEND_API_KEY) {
+          console.log(`\n[DEV AUTH] Sign-in link for ${email}:\n${url}\n`);
+          return;
+        }
+
         if (!resend) {
           console.error('RESEND_API_KEY not configured');
           throw new Error('Email service not configured');
@@ -105,12 +75,6 @@ export const authOptions: NextAuthOptions = {
     async session({ session, user }) {
       if (session.user) {
         session.user.id = user.id;
-        // Fetch bccAddress from the user record
-        const dbUser = await prisma.user.findUnique({
-          where: { id: user.id },
-          select: { bccAddress: true },
-        });
-        session.user.bccAddress = dbUser?.bccAddress || '';
       }
       return session;
     },
