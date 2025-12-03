@@ -12,8 +12,13 @@ export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as Adapter,
   providers: [
     EmailProvider({
-      server: {}, // Not used with custom sendVerificationRequest
-      from: process.env.EMAIL_FROM || 'onboarding@resend.dev',
+      // Server is required by NextAuth but not used when sendVerificationRequest is provided
+      server: {
+        host: 'localhost',
+        port: 25,
+        auth: { user: '', pass: '' },
+      },
+      from: process.env.EMAIL_FROM || 'noreply@channelsignal.dev',
       sendVerificationRequest: async ({ identifier: email, url }) => {
         // In development without Resend API key, log magic link to console
         if (process.env.NODE_ENV === 'development' && !process.env.RESEND_API_KEY) {
