@@ -14,7 +14,7 @@ export default function VerifyRequestPage() {
 
         <div className="mt-8 p-4 bg-blue-50 rounded-md">
           <p className="text-sm text-blue-700">
-            Don't see the email? Check your spam folder.
+            Don&apos;t see the email? Check your spam folder.
           </p>
         </div>
       </div>
