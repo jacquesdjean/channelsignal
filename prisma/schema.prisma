@@ -75,17 +75,20 @@ model EmailEvent {
 
 model Upload {
   id           String   @id @default(cuid())
-  channelId    String
-  uploadedById String
   filename     String
+  storageKey   String   // Local path in dev, S3 key in prod
   mimeType     String
   sizeBytes    Int
-  storageKey   String   // Local path in dev, S3 key in prod
   createdAt    DateTime @default(now())
-  channel      Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+
+  uploadedById String?
+  uploadedBy   User?    @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  channelId    String?
+  channel      Channel? @relation(fields: [channelId], references: [id], onDelete: SetNull)
 
   @@index([channelId])
+  @@index([uploadedById])
 }
 
 // NextAuth required models

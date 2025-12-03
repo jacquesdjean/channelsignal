@@ -139,7 +139,7 @@ export default async function ChannelDetailPage({ params }: Props) {
                   <div>
                     <p className="text-sm font-medium text-gray-900">{upload.filename}</p>
                     <p className="text-xs text-gray-500">
-                      {formatBytes(upload.sizeBytes)} &bull; Uploaded by {upload.uploadedBy.email}
+                      {formatBytes(upload.sizeBytes)} &bull; Uploaded by {upload.uploadedBy?.email || 'Unknown'}
                     </p>
                   </div>
                   <span className="text-xs text-gray-400">
