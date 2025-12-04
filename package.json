@@ -13,7 +13,11 @@
     "db:studio": "prisma studio",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "firebase": "firebase",
+    "firebase:login": "firebase login --no-localhost",
+    "firebase:deploy:indexes": "firebase deploy --only firestore:indexes",
+    "firebase:deploy:rules": "firebase deploy --only firestore:rules"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.2",
