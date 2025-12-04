@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db';
 import { AppShell } from '@/components/AppShell';
 import { CopyButton } from '@/components/CopyButton';
 import { formatDistanceToNow } from 'date-fns';
+import type { EmailEvent, Upload, User } from '@prisma/client';
 
 interface Props {
   params: { id: string };
@@ -95,7 +96,7 @@ export default async function ChannelDetailPage({ params }: Props) {
             </div>
           ) : (
             <ul className="divide-y divide-gray-200">
-              {channel.emailEvents.map((event) => (
+              {channel.emailEvents.map((event: EmailEvent) => (
                 <li key={event.id} className="px-4 py-4 hover:bg-gray-50">
                   <div className="flex items-start justify-between">
                     <div className="min-w-0 flex-1">
@@ -134,7 +135,7 @@ export default async function ChannelDetailPage({ params }: Props) {
             </div>
           ) : (
             <ul className="divide-y divide-gray-200">
-              {channel.uploads.map((upload) => (
+              {channel.uploads.map((upload: Upload & { uploadedBy: User | null }) => (
                 <li key={upload.id} className="px-4 py-3 flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-900">{upload.filename}</p>

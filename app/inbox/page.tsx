@@ -4,6 +4,16 @@ import { authOptions } from '@/lib/auth/options';
 import { prisma } from '@/lib/db';
 import { AppShell } from '@/components/AppShell';
 import { formatDistanceToNow } from 'date-fns';
+import type { EmailEvent, Channel, Organization } from '@prisma/client';
+
+type EmailEventWithChannel = EmailEvent & {
+  channel: Channel & { organization: Organization };
+};
+
+type ChannelGroup = {
+  channel: Channel & { organization: Organization };
+  events: EmailEventWithChannel[];
+};
 
 export default async function InboxPage() {
   const session = await getServerSession(authOptions);
@@ -13,7 +23,7 @@ export default async function InboxPage() {
   }
 
   // Get email events from channels the user has access to via memberships
-  const emailEvents = await prisma.emailEvent.findMany({
+  const emailEvents: EmailEventWithChannel[] = await prisma.emailEvent.findMany({
     include: {
       channel: {
         include: {
@@ -26,7 +36,7 @@ export default async function InboxPage() {
   });
 
   // Group by channel
-  const groupedByChannel = emailEvents.reduce((acc, event) => {
+  const groupedByChannel = emailEvents.reduce<Record<string, ChannelGroup>>((acc, event) => {
     const channelId = event.channelId;
     if (!acc[channelId]) {
       acc[channelId] = {
@@ -36,7 +46,7 @@ export default async function InboxPage() {
     }
     acc[channelId].events.push(event);
     return acc;
-  }, {} as Record<string, { channel: typeof emailEvents[0]['channel']; events: typeof emailEvents }>);
+  }, {});
 
   const isEmpty = emailEvents.length === 0;
 
@@ -55,7 +65,7 @@ export default async function InboxPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {Object.entries(groupedByChannel).map(([channelId, { channel, events }]) => (
+            {Object.entries(groupedByChannel).map(([channelId, { channel, events }]: [string, ChannelGroup]) => (
               <div key={channelId} className="bg-white rounded-lg shadow overflow-hidden">
                 <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
                   <h2 className="text-sm font-medium text-gray-700">
@@ -64,7 +74,7 @@ export default async function InboxPage() {
                   </h2>
                 </div>
                 <ul className="divide-y divide-gray-200">
-                  {events.map((event) => (
+                  {events.map((event: EmailEventWithChannel) => (
                     <li key={event.id} className="px-4 py-4 hover:bg-gray-50">
                       <div className="flex items-start justify-between">
                         <div className="min-w-0 flex-1">

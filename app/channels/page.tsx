@@ -5,6 +5,13 @@ import { authOptions } from '@/lib/auth/options';
 import { prisma } from '@/lib/db';
 import { AppShell } from '@/components/AppShell';
 import { formatDistanceToNow } from 'date-fns';
+import type { Channel, Organization } from '@prisma/client';
+
+type ChannelWithOrg = Channel & {
+  organization: Organization;
+  _count: { emailEvents: number };
+  emailEvents: { timestamp: Date }[];
+};
 
 export default async function ChannelsPage() {
   const session = await getServerSession(authOptions);
@@ -59,7 +66,7 @@ export default async function ChannelsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {channels.map((channel) => {
+            {channels.map((channel: ChannelWithOrg) => {
               const lastActivity = channel.emailEvents[0]?.timestamp;
               return (
                 <Link
