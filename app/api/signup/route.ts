@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { Prisma } from '@prisma/client';
 import { sendWelcomeEmail } from '@/lib/email';
 
 interface SignupBody {
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create user (and optionally organization with membership) in a transaction
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Create user
       const user = await tx.user.create({
         data: {
